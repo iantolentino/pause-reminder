@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pause Reminder</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+        width: 320px;
+        padding: 12px;
+        box-sizing: border-box;
+        color: #0f172a;
+      }
+      .row { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+      label { font-size: 13px; color: #0f172a;}
+      input[type="number"] { width: 84px; padding:6px 8px; border-radius:8px; border:1px solid #e6e9ef;}
+      .btn { padding:8px 12px; border-radius:8px; background:#0ea5a4; color:white; border:none; cursor:pointer;}
+      .muted { font-size:12px; color:#6b7280;}
+      textarea { width:100%; min-height:70px; resize:vertical; border-radius:8px;border:1px solid #e6e9ef;padding:8px;font-size:13px;}
+      .small { font-size:12px; color:#374151; margin-top:8px;}
+      .actions { display:flex; gap:8px; margin-top:10px; }
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <label for="enabled">Enabled</label>
+      <input id="enabled" type="checkbox" />
+    </div>
+
+    <div class="row">
+      <label for="interval">Interval (minutes)</label>
+      <input id="interval" type="number" min="1" value="30" />
+    </div>
+
+    <div class="row">
+      <label for="duration">Pause length (seconds)</label>
+      <input id="duration" type="number" min="2" value="10" />
+    </div>
+
+    <div style="margin-top:8px;">
+      <label for="suggestions">Suggestions (one per line)</label>
+      <textarea id="suggestions" placeholder="Take a deep breath&#10;Stand & stretch&#10;Drink water"></textarea>
+      <div class="small">These rotate randomly during each pause.</div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <label><input id="showSuggestions" type="checkbox" checked /> Show suggestions on pause</label>
+    </div>
+
+    <div class="actions">
+      <button id="saveBtn" class="btn">Save</button>
+      <button id="testBtn" style="background:#ef4444;color:white;border:none;padding:8px;border-radius:8px;cursor:pointer;">Test Now</button>
+    </div>
+
+    <div style="margin-top:12px;">
+      <div class="muted">Tip: use "Test Now" to preview the pause without waiting.</div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
