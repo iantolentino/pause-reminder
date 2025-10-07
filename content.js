@@ -1,76 +1,103 @@
-// content.js
-// Injects/controls the blur overlay inside each page and responds to background messages.
-
+// content.js (in-page content script)
 const OVERLAY_ID = "pause-reminder-overlay-v1";
 
-// Helper: create overlay DOM element
 function createOverlay({ durationSeconds = 10, suggestions = [], showSuggestions = true } = {}) {
-  // if overlay exists, don't create another
-  if (document.getElementById(OVERLAY_ID)) return;
+  if (document.getElementById(OVERLAY_ID)) {
+    console.log("PauseReminder: overlay already present, skipping create.");
+    return;
+  }
 
   const overlay = document.createElement("div");
   overlay.id = OVERLAY_ID;
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
   overlay.tabIndex = -1;
+  // inline styles as fallback if CSS wasn't injected
+  overlay.style.position = "fixed";
+  overlay.style.inset = "0";
+  overlay.style.zIndex = "2147483647";
+  overlay.style.display = "flex";
+  overlay.style.alignItems = "center";
+  overlay.style.justifyContent = "center";
+  overlay.style.backdropFilter = "blur(6px) brightness(0.85)";
+  overlay.style.background = "rgba(0,0,0,0.18)";
+  overlay.style.opacity = "0";
+  overlay.style.transition = "opacity 280ms ease";
 
-  // inner card
   const card = document.createElement("div");
   card.className = "pr-card";
+  card.style.background = "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(250,250,250,0.9))";
+  card.style.minWidth = "300px";
+  card.style.maxWidth = "85%";
+  card.style.padding = "18px";
+  card.style.borderRadius = "12px";
+  card.style.boxShadow = "0 10px 30px rgba(0,0,0,0.25)";
+  card.style.textAlign = "center";
+  card.style.outline = "none";
+  card.style.fontFamily = "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
 
-  // Title
   const title = document.createElement("div");
   title.className = "pr-title";
   title.textContent = "Take a short pause";
+  title.style.fontWeight = "700";
+  title.style.fontSize = "18px";
+  title.style.color = "#111827";
+  title.style.marginBottom = "8px";
 
-  // Suggestion text
   const suggestionText = document.createElement("div");
   suggestionText.className = "pr-suggestion";
   suggestionText.textContent = selectSuggestion(suggestions);
+  suggestionText.style.fontSize = "15px";
+  suggestionText.style.color = "#374151";
+  suggestionText.style.marginBottom = "14px";
 
-  // Buttons row
   const btnRow = document.createElement("div");
   btnRow.className = "pr-btnrow";
+  btnRow.style.display = "flex";
+  btnRow.style.gap = "10px";
+  btnRow.style.justifyContent = "center";
 
-  // Dismiss button
   const dismissBtn = document.createElement("button");
   dismissBtn.className = "pr-btn pr-dismiss";
   dismissBtn.textContent = "Dismiss";
+  dismissBtn.style.padding = "8px 12px";
+  dismissBtn.style.borderRadius = "10px";
+  dismissBtn.style.fontSize = "14px";
+  dismissBtn.style.cursor = "pointer";
   dismissBtn.addEventListener("click", removeOverlay);
 
-  // Snooze button (5 minutes)
   const snoozeBtn = document.createElement("button");
   snoozeBtn.className = "pr-btn pr-snooze";
   snoozeBtn.textContent = "Snooze 5m";
+  snoozeBtn.style.padding = "8px 12px";
+  snoozeBtn.style.borderRadius = "10px";
+  snoozeBtn.style.fontSize = "14px";
+  snoozeBtn.style.cursor = "pointer";
   snoozeBtn.addEventListener("click", () => {
     removeOverlay();
-    chrome.runtime.sendMessage({ action: "update-settings" }); // no-op but kept for future
-    // schedule a snooze by setting a one-off alarm via background - easiest to trigger immediate through runtime
-    chrome.runtime.sendMessage({ action: "trigger-now", durationSeconds: 5 }).catch(()=>{});
+    // optional: request a manual trigger with a short duration to simulate snooze
+    chrome.runtime.sendMessage({ action: "trigger-now", durationSeconds: 5 }, () => {});
   });
 
-  // Append elements
   btnRow.appendChild(snoozeBtn);
   btnRow.appendChild(dismissBtn);
 
   card.appendChild(title);
   if (showSuggestions) card.appendChild(suggestionText);
   card.appendChild(btnRow);
-
   overlay.appendChild(card);
   document.documentElement.appendChild(overlay);
 
-  // Accessibility focus
-  card.focus();
+  // show
+  requestAnimationFrame(() => overlay.style.opacity = "1");
 
-  // animate: add visible class to start CSS transitions
-  requestAnimationFrame(() => overlay.classList.add("pr-visible"));
-
-  // Auto-remove after durationSeconds
+  // auto remove
   const timer = setTimeout(() => {
     removeOverlay();
     clearTimeout(timer);
   }, Math.max(1000, Number(durationSeconds) * 1000));
+
+  console.log("PauseReminder: overlay shown (duration:", durationSeconds, "s )");
 }
 
 function selectSuggestion(suggestions) {
@@ -84,17 +111,15 @@ function selectSuggestion(suggestions) {
 function removeOverlay() {
   const el = document.getElementById(OVERLAY_ID);
   if (!el) return;
-  el.classList.remove("pr-visible");
-  // match CSS transition duration (300ms)
+  el.style.opacity = "0";
   setTimeout(() => {
     if (el && el.parentNode) el.parentNode.removeChild(el);
+    console.log("PauseReminder: overlay removed.");
   }, 320);
 }
 
-// Listen for background messages
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.action === "trigger-pause") {
-    // guard: do not trigger inside some extension pages or file:// where injection could be blocked
     try {
       createOverlay({
         durationSeconds: msg.durationSeconds,
@@ -102,8 +127,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         showSuggestions: msg.showSuggestions
       });
     } catch (e) {
-      // fail silently
-      console.error("Pause Reminder overlay failed:", e);
+      console.error("PauseReminder: content script failed to create overlay:", e);
     }
   }
 });
