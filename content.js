@@ -1,133 +1,112 @@
-// content.js (in-page content script)
-const OVERLAY_ID = "pause-reminder-overlay-v1";
+// content.js — on-page rest overlay, countdown and dismiss handling (overlay not blurred)
 
-function createOverlay({ durationSeconds = 10, suggestions = [], showSuggestions = true } = {}) {
-  if (document.getElementById(OVERLAY_ID)) {
-    console.log("PauseReminder: overlay already present, skipping create.");
+const OVERLAY_ID = "pause-reminder-overlay-v2";
+
+let overlayEl = null;
+let overlayInterval = null;
+let overlayRemaining = 0;
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (!msg || !msg.action) return;
+  if (msg.action === "trigger-pause") {
+    createOverlay(msg.restMinutes, msg.suggestions);
+  } else if (msg.action === "end-rest") {
+    // background requested end of rest (alarm fired) — remove overlay silently
+    removeOverlaySilent();
+  }
+});
+
+function createOverlay(restMinutes = 5, suggestions = []) {
+  // If already present, optionally extend remaining time
+  if (overlayEl) {
+    const newRem = restMinutes * 60;
+    if (newRem > overlayRemaining) overlayRemaining = newRem;
     return;
   }
 
-  const overlay = document.createElement("div");
-  overlay.id = OVERLAY_ID;
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.tabIndex = -1;
-  // inline styles as fallback if CSS wasn't injected
-  overlay.style.position = "fixed";
-  overlay.style.inset = "0";
-  overlay.style.zIndex = "2147483647";
-  overlay.style.display = "flex";
-  overlay.style.alignItems = "center";
-  overlay.style.justifyContent = "center";
-  overlay.style.backdropFilter = "blur(6px) brightness(0.85)";
-  overlay.style.background = "rgba(0,0,0,0.18)";
-  overlay.style.opacity = "0";
-  overlay.style.transition = "opacity 280ms ease";
+  // Build overlay (no page-wide blur class)
+  overlayEl = document.createElement("div");
+  overlayEl.id = OVERLAY_ID;
+  overlayEl.className = "pause-overlay";
 
   const card = document.createElement("div");
-  card.className = "pr-card";
-  card.style.background = "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(250,250,250,0.9))";
-  card.style.minWidth = "300px";
-  card.style.maxWidth = "85%";
-  card.style.padding = "18px";
-  card.style.borderRadius = "12px";
-  card.style.boxShadow = "0 10px 30px rgba(0,0,0,0.25)";
-  card.style.textAlign = "center";
-  card.style.outline = "none";
-  card.style.fontFamily = "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
+  card.className = "pause-card";
 
   const title = document.createElement("div");
-  title.className = "pr-title";
-  title.textContent = "Take a short pause";
-  title.style.fontWeight = "700";
-  title.style.fontSize = "18px";
-  title.style.color = "#111827";
-  title.style.marginBottom = "8px";
+  title.className = "pause-title";
+  title.textContent = "Rest Time 🕒";
 
-  const suggestionText = document.createElement("div");
-  suggestionText.className = "pr-suggestion";
-  suggestionText.textContent = selectSuggestion(suggestions);
-  suggestionText.style.fontSize = "15px";
-  suggestionText.style.color = "#374151";
-  suggestionText.style.marginBottom = "14px";
+  const suggestion = document.createElement("div");
+  suggestion.className = "pause-text";
+  suggestion.textContent = (Array.isArray(suggestions) && suggestions.length)
+    ? suggestions[Math.floor(Math.random() * suggestions.length)]
+    : "Take a short break.";
 
-  const btnRow = document.createElement("div");
-  btnRow.className = "pr-btnrow";
-  btnRow.style.display = "flex";
-  btnRow.style.gap = "10px";
-  btnRow.style.justifyContent = "center";
+  const timerEl = document.createElement("div");
+  timerEl.className = "pause-timer";
+  timerEl.textContent = formatClock(restMinutes * 60);
 
-  const dismissBtn = document.createElement("button");
-  dismissBtn.className = "pr-btn pr-dismiss";
-  dismissBtn.textContent = "Dismiss";
-  dismissBtn.style.padding = "8px 12px";
-  dismissBtn.style.borderRadius = "10px";
-  dismissBtn.style.fontSize = "14px";
-  dismissBtn.style.cursor = "pointer";
-  dismissBtn.addEventListener("click", removeOverlay);
-
-  const snoozeBtn = document.createElement("button");
-  snoozeBtn.className = "pr-btn pr-snooze";
-  snoozeBtn.textContent = "Snooze 5m";
-  snoozeBtn.style.padding = "8px 12px";
-  snoozeBtn.style.borderRadius = "10px";
-  snoozeBtn.style.fontSize = "14px";
-  snoozeBtn.style.cursor = "pointer";
-  snoozeBtn.addEventListener("click", () => {
-    removeOverlay();
-    // optional: request a manual trigger with a short duration to simulate snooze
-    chrome.runtime.sendMessage({ action: "trigger-now", durationSeconds: 5 }, () => {});
-  });
-
-  btnRow.appendChild(snoozeBtn);
-  btnRow.appendChild(dismissBtn);
+  const btn = document.createElement("button");
+  btn.className = "pause-btn";
+  btn.textContent = "Dismiss";
+  btn.addEventListener("click", () => userDismiss());
 
   card.appendChild(title);
-  if (showSuggestions) card.appendChild(suggestionText);
-  card.appendChild(btnRow);
-  overlay.appendChild(card);
-  document.documentElement.appendChild(overlay);
+  card.appendChild(suggestion);
+  card.appendChild(timerEl);
+  card.appendChild(btn);
+  overlayEl.appendChild(card);
+  document.body.appendChild(overlayEl);
 
-  // show
-  requestAnimationFrame(() => overlay.style.opacity = "1");
+  // show overlay (overlay CSS uses backdrop-filter to blur page behind it)
+  overlayEl.classList.add("visible");
 
-  // auto remove
-  const timer = setTimeout(() => {
-    removeOverlay();
-    clearTimeout(timer);
-  }, Math.max(1000, Number(durationSeconds) * 1000));
+  overlayRemaining = restMinutes * 60;
+  timerEl.textContent = `Resuming in ${formatClock(overlayRemaining)}`;
 
-  console.log("PauseReminder: overlay shown (duration:", durationSeconds, "s )");
-}
-
-function selectSuggestion(suggestions) {
-  if (!Array.isArray(suggestions) || suggestions.length === 0) {
-    return "Take a breath and stretch.";
-  }
-  const idx = Math.floor(Math.random() * suggestions.length);
-  return suggestions[idx];
-}
-
-function removeOverlay() {
-  const el = document.getElementById(OVERLAY_ID);
-  if (!el) return;
-  el.style.opacity = "0";
-  setTimeout(() => {
-    if (el && el.parentNode) el.parentNode.removeChild(el);
-    console.log("PauseReminder: overlay removed.");
-  }, 320);
-}
-
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg?.action === "trigger-pause") {
-    try {
-      createOverlay({
-        durationSeconds: msg.durationSeconds,
-        suggestions: msg.suggestions,
-        showSuggestions: msg.showSuggestions
-      });
-    } catch (e) {
-      console.error("PauseReminder: content script failed to create overlay:", e);
+  overlayInterval = setInterval(() => {
+    overlayRemaining--;
+    if (overlayRemaining <= 0) {
+      clearInterval(overlayInterval);
+      overlayInterval = null;
+      // natural end: remove overlay silently; background's rest-end alarm will also fire to resume focus
+      removeOverlaySilent();
+    } else {
+      timerEl.textContent = `Resuming in ${formatClock(overlayRemaining)}`;
     }
+  }, 1000);
+}
+
+function userDismiss() {
+  // notify background to resume focus immediately
+  try {
+    chrome.runtime.sendMessage({ action: "resume-focus" });
+  } catch (e) { /* ignore */ }
+  removeOverlay(false);
+}
+
+function removeOverlay(silent = true) {
+  if (!overlayEl) return;
+  if (overlayInterval) {
+    clearInterval(overlayInterval);
+    overlayInterval = null;
   }
-});
+  overlayEl.classList.remove("visible");
+  setTimeout(() => {
+    if (overlayEl && overlayEl.parentNode) overlayEl.parentNode.removeChild(overlayEl);
+    overlayEl = null;
+  }, 220);
+
+  // if not silent, background already got resume-focus (userDismiss sends it) — nothing extra here
+  // (we keep removeOverlay used for UI cleanup only)
+}
+
+function removeOverlaySilent() {
+  removeOverlay(true);
+}
+
+function formatClock(totalSeconds) {
+  const mm = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const ss = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${mm}:${ss}`;
+}
