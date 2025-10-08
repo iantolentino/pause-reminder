@@ -1,4 +1,4 @@
-# 🕒 Pause Reminder — Chrome Extension
+# 🕒 Pause Reminder — Browser Extension
 
 ### **Stay focused. Rest mindfully. Work smarter.**
 
