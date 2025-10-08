@@ -1,94 +1,61 @@
-/* overlay.css - styles for the blur overlay and card */
+/* overlay + backdrop blur styling */
 
-/* The overlay covers entire viewport and applies backdrop blur */
-#pause-reminder-overlay-v1 {
+.pause-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2147483647; /* very top */
+  background: rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(6px) brightness(0.85);
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: auto;
-  backdrop-filter: blur(6px) brightness(0.85);
-  -webkit-backdrop-filter: blur(6px) brightness(0.85);
-  background: rgba(0,0,0,0.18);
+  z-index: 2147483647;
   opacity: 0;
-  transition: opacity 280ms ease;
+  transition: opacity 0.22s ease;
+  -webkit-backdrop-filter: blur(6px) brightness(0.85);
 }
 
-/* visible state */
-#pause-reminder-overlay-v1.pr-visible {
+.pause-overlay.visible {
   opacity: 1;
 }
 
-/* card */
-#pause-reminder-overlay-v1 .pr-card {
-  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(250,250,250,0.9));
-  min-width: 300px;
-  max-width: 85%;
-  padding: 18px 18px;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+.pause-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px 22px;
+  width: 340px;
+  max-width: 92%;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
   text-align: center;
-  transform: translateY(8px) scale(0.99);
-  transition: transform 260ms cubic-bezier(.2,.9,.2,1);
-  outline: none;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
 
-#pause-reminder-overlay-v1.pr-visible .pr-card {
-  transform: translateY(0) scale(1);
-}
-
-/* title */
-.pr-title {
+.pause-title {
+  font-size: 20px;
   font-weight: 700;
-  font-size: 18px;
-  color: #111827;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
-/* suggestion */
-.pr-suggestion {
+.pause-text {
   font-size: 15px;
   color: #374151;
+  margin-bottom: 12px;
+}
+
+.pause-timer {
+  font-weight: 700;
+  font-size: 16px;
   margin-bottom: 14px;
+  color: #111827;
 }
 
-/* buttons */
-.pr-btnrow {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.pr-btn {
-  border: none;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 14px;
-  cursor: pointer;
-  min-width: 88px;
-  transition: transform 120ms ease;
-}
-
-.pr-btn:active { transform: translateY(1px); }
-
-.pr-dismiss {
-  background: transparent;
-  color: #374151;
-  box-shadow: inset 0 0 0 1px rgba(55,65,81,0.12);
-}
-
-.pr-snooze {
-  background: linear-gradient(180deg,#059669,#047857);
+.pause-btn {
+  background: #2563eb;
   color: white;
-  box-shadow: 0 6px 14px rgba(5,150,105,0.18);
+  border: none;
+  padding: 9px 16px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 14px;
 }
 
-/* Responsive tweaks */
-@media (max-width: 420px) {
-  #pause-reminder-overlay-v1 .pr-card { padding: 14px; min-width: 260px; }
-  .pr-title { font-size: 16px; }
-  .pr-suggestion { font-size: 14px; }
-}
+.pause-btn:hover { background: #1d4ed8; }
